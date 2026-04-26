@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en" class="lenis">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BMW M3 | The Ultimate Interactive Experience</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP for World-Class Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    
+    <!-- Lenis for Butter-Smooth Scrolling -->
+    <script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;900&display=swap');
+
+        /* Lenis Smooth Scroll Base Styles */
+        html.lenis { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto !important; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
+        .lenis.lenis-scrolling iframe { pointer-events: none; }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: #010101;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Smooth Scrolling Progress Bar */
+        .scroll-progress-bar {
+            position: fixed; top: 0; left: 0; height: 3px;
+            background: linear-gradient(90deg, #00d2ff, #0072ff);
+            width: 0%; z-index: 99999;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+            transition: width 0.1s ease-out;
+        }
+
+        #webgl-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 0; pointer-events: none;
+        }
+
+        /* Cinematic Vignette Overlay */
+        .vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 30%, rgba(0,0,0,0.85) 100%);
+            z-index: 5; pointer-events: none;
+        }
+
+        /* Floating Premium Navbar */
+        .nav-island {
+            position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%);
+            background: rgba(10, 10, 10, 0.6);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 100px;
+            display: flex; align-items: center; justify-content: space-between;
+            z-index: 1000; box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 90%; max-width: 800px; padding: 0.5rem 1rem;
+        }
+        @media (min-width: 768px) {
+            .nav-island { width: auto; padding: 0.6rem 2.5rem; gap: 3rem; }
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; transition: opacity 1.2s ease-in-out;
+        }
+        .loader-bar { width: 160px; height: 1px; background: #111; margin-top: 30px; overflow: hidden; }
+        .loader-progress { width: 0%; height: 100%; background: #00d2ff; transition: width 0.4s ease; }
+
+        .scroll-container { position: relative; z-index: 10; }
+        
+        /* Desktop Default Step */
+        .step { min-height: 100vh; display: flex; align-items: center; padding: 0 10%; pointer-events: none; }
+        
+        /* Desktop Default Panel */
+        .story-panel {
+            max-width: 500px; pointer-events: auto;
+            opacity: 0; transform: translateY(40px);
+            will-change: transform, opacity;
+            transition: opacity 1s, transform 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .story-panel.active { opacity: 1; transform: translateY(0); }
+
+        /* --- MOBILE PREMIUM APP UI --- */
+        @media (max-width: 767px) {
+            .step {
+                padding: 0;
+                align-items: flex-end; /* Push panels to the bottom */
+                padding-bottom: 0;
+            }
+            .story-panel {
+                width: 100%;
+                max-width: 100%;
+                border-radius: 32px 32px 0 0;
+                border: none;
+                border-top: 1px solid rgba(255,255,255,0.15);
+                background: rgba(5, 5, 5, 0.65);
+                backdrop-filter: blur(25px);
+                -webkit-backdrop-filter: blur(25px);
+                padding: 2.5rem 1.5rem 6.5rem 1.5rem; /* Room for color picker at bottom */
+                text-align: center;
+                box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+                transform: translateY(100px); /* Slide up from off-screen */
+            }
+            .story-panel h1 { font-size: 2.5rem !important; margin-bottom: 1rem !important; }
+            .story-panel p { text-align: center !important; font-size: 0.85rem !important; }
+            .specs-list { display: none; } /* Clean up mobile view */
+            
+            /* Custom alignment for View 6 (Outro) on Mobile */
+            #step-6 { align-items: center; padding: 0 1.5rem; }
+            #panel-6 { border-radius: 32px; padding: 3rem 1.5rem; border: 1px solid rgba(255,255,255,0.1); }
+        }
+
+        .highlight { 
+            background: linear-gradient(90deg, #00d2ff, #0072ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900; 
+        }
+
+        /* Color Picker UI */
+        .color-picker {
+            position: fixed; bottom: 3rem; left: 50%; transform: translateX(-50%);
+            z-index: 100; display: flex; gap: 1.5rem; background: rgba(0,0,0,0.6);
+            padding: 0.8rem 1.5rem; border-radius: 100px; backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: max-content;
+        }
+        
+        /* Mobile Color Picker - Docked perfectly inside the bottom sheet area */
+        @media (max-width: 767px) { 
+            .color-picker { 
+                bottom: 1.5rem; gap: 1rem; width: 85%; justify-content: space-evenly; 
+                background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.15);
+                padding: 0.6rem 1rem;
+            } 
+        }
+        
+        .swatch {
+            width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.2); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @media (max-width: 767px) { .swatch { width: 24px; height: 24px; } }
+        .swatch:hover { transform: scale(1.4); border-color: #00d2ff; }
+        .swatch.active { transform: scale(1.3); border-color: white; box-shadow: 0 0 15px rgba(0, 210, 255, 0.5); }
+
+        /* Specs Table (Desktop) */
+        .specs-list { border-top: 1px solid rgba(255,255,255,0.1); margin-top: 1.5rem; padding-top: 1.5rem; }
+        .spec-row { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 0.5rem 0; }
+        .spec-label { color: gray; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; }
+        .spec-value { font-weight: bold; color: white; font-size: 0.85rem; text-align: right; }
+
+        /* Mouse Scroll Indicator */
+        .scroll-indicator {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            width: 20px; height: 34px; border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 20px; display: flex; justify-content: center; padding-top: 6px;
+            pointer-events: none; z-index: 20;
+        }
+        @media (max-width: 767px) { .scroll-indicator { display: none; } } /* Hidden on mobile */
+        .scroll-wheel {
+            width: 4px; height: 8px; background: #00d2ff; border-radius: 2px;
+            animation: scrollBounce 1.5s infinite;
+        }
+        @keyframes scrollBounce {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(12px); opacity: 0; }
+        }
+
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Progress Bar -->
+    <div class="scroll-progress-bar" id="scroll-progress"></div>
+
+    <div class="vignette"></div>
+
+    <!-- Cinematic Preloader -->
+    <div id="loader">
+        <div class="text-[10px] md:text-[9px] tracking-[0.6em] uppercase text-gray-600 font-light">Loading Artifact</div>
+        <div class="text-3xl md:text-3xl font-black mt-3 tracking-tighter">BMW <span class="text-[#00d2ff]">M3</span></div>
+        <div class="loader-bar"><div class="loader-progress" id="progress"></div></div>
+    </div>
+
+    <!-- Floating Navigation Island -->
+    <div class="nav-island">
+        <div class="text-lg md:text-xl font-black tracking-tighter">BMW <span class="highlight">M</span></div>
+        <div class="hidden md:flex gap-10 text-[9px] font-bold tracking-[0.3em] uppercase text-gray-500">
+            <a href="#sequence-01" class="hover:text-white transition-all duration-300">Front</a>
+            <a href="#sequence-02" class="hover:text-white transition-all duration-300">Profile</a>
+            <a href="#sequence-03" class="hover:text-white transition-all duration-300">Rear</a>
+            <a href="#sequence-04" class="hover:text-white transition-all duration-300">Engine</a>
+        </div>
+        <button class="bg-white text-black px-5 py-2 md:px-7 md:py-2.5 rounded-full text-[9px] font-black uppercase tracking-[0.15em] hover:bg-[#00d2ff] hover:scale-105 transition-all duration-500">
+            Pre-Order
+        </button>
+    </div>
+
+    <!-- Paint Selection -->
+    <div class="color-picker">
+        <div class="swatch active" style="background: #080808;" data-color="0x080808"></div>
+        <div class="swatch" style="background: #002e7a;" data-color="0x002e7a"></div>
+        <div class="swatch" style="background: #a30000;" data-color="0xa30000"></div>
+        <div class="swatch" style="background: #e0e0e0;" data-color="0xe0e0e0"></div>
+        <div class="swatch" style="background: #3e4a3d;" data-color="0x3e4a3d"></div>
+    </div>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <div class="scroll-container">
+        
+        <!-- View 1: Macro Front -->
+        <section class="step" id="sequence-01">
+            <div class="story-panel" id="panel-1">
+                <p class="text-[#00d2ff] text-[10px] font-bold tracking-[0.5em] uppercase mb-2 md:mb-5">Sequence 01</p>
+                <h1 class="text-7xl font-black leading-[0.9] mb-4 md:mb-8 tracking-tighter">BORN ON <br>THE <span class="highlight">TRACK.</span></h1>
+                <p class="text-gray-300 md:text-gray-400 leading-relaxed font-light">Every contour is a deliberate act of performance. The signature grille demands respect while funneling massive air to the powertrain.</p>
+                <div class="specs-list">
+                    <div class="spec-row"><span class="spec-label">Headlights</span> <span class="spec-value">BMW Laserlight</span></div>
+                    <div class="spec-row"><span class="spec-label">Intakes</span> <span class="spec-value">Frameless Curtains</span></div>
+                </div>
+            </div>
+            <div class="scroll-indicator"><div class="scroll-wheel"></div></div>
+        </section>
+
+        <!-- View 2: Side Dynamic -->
+        <section class="step md:justify-end" id="sequence-02">
+            <div class="story-panel" id="panel-2">
+                <p class="text-[#00d2ff] text-[10px] font-bold tracking-[0.5em] uppercase mb-2 md:mb-5">Sequence 02</p>
+                <h1 class="text-7xl font-black leading-[0.9] mb-4 md:mb-8 tracking-tighter">AERO <br>FORGED.</h1>
+                <p class="text-gray-300 md:text-gray-400 leading-relaxed font-light">Optimized airflow meets aggressive aesthetics. The widened stance provides unrivaled stability at high velocities.</p>
+                <div class="specs-list">
+                    <div class="spec-row"><span class="spec-label">Roof Material</span> <span class="spec-value">Carbon Fiber</span></div>
+                    <div class="spec-row"><span class="spec-label">Side Gills</span> <span class="spec-value">M-Specific Design</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 3: Rear Angle -->
+        <section class="step" id="sequence-03">
+            <div class="story-panel" id="panel-3">
+                <p class="text-[#00d2ff] text-[10px] font-bold tracking-[0.5em] uppercase mb-2 md:mb-5">Sequence 03</p>
+                <h1 class="text-7xl font-black leading-[0.9] mb-4 md:mb-8 tracking-tighter">SIGNATURE <br>GLOW.</h1>
+                <p class="text-gray-300 md:text-gray-400 leading-relaxed font-light">An unmistakable presence. Distinctive L-shaped taillights and an aggressive diffuser ensure the last thing they see is unforgettable.</p>
+                <div class="specs-list">
+                    <div class="spec-row"><span class="spec-label">Exhaust</span> <span class="spec-value">Quad Tailpipes</span></div>
+                    <div class="spec-row"><span class="spec-label">Diffuser</span> <span class="spec-value">High-Gloss Black</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 4: Top Engine Reveal -->
+        <section class="step md:justify-end" id="sequence-04">
+            <div class="story-panel" id="panel-4">
+                <p class="text-[#00d2ff] text-[10px] font-bold tracking-[0.5em] uppercase mb-2 md:mb-5">Sequence 04</p>
+                <h1 class="text-7xl font-black leading-[0.9] mb-4 md:mb-8 tracking-tighter">RAW <br>HEART.</h1>
+                <p class="text-gray-300 md:text-gray-400 leading-relaxed font-light mb-4">Beneath the sculpted hood lies a masterpiece. A twin-turbocharged inline-six delivering unrelenting power.</p>
+                
+                <!-- Mobile Engine Specs Layout -->
+                <div class="flex justify-center md:justify-start gap-8 md:gap-12 mt-4 md:border-t md:border-white/20 md:pt-6">
+                    <div class="text-center md:text-left">
+                        <div class="text-3xl md:text-4xl font-black tracking-tighter">503 <span class="text-[10px] text-gray-400 font-normal ml-0 tracking-widest">HP</span></div>
+                        <div class="text-[8px] text-[#00d2ff] uppercase tracking-[0.3em] mt-1">S58 Engine</div>
+                    </div>
+                    <div class="text-center md:text-left">
+                        <div class="text-3xl md:text-4xl font-black tracking-tighter">3.4 <span class="text-[10px] text-gray-400 font-normal ml-0 tracking-widest">SEC</span></div>
+                        <div class="text-[8px] text-[#00d2ff] uppercase tracking-[0.3em] mt-1">0-60 mph</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 5: Wheel & Stance -->
+        <section class="step" id="sequence-05">
+            <div class="story-panel" id="panel-5">
+                <p class="text-[#00d2ff] text-[10px] font-bold tracking-[0.5em] uppercase mb-2 md:mb-5">Sequence 05</p>
+                <h1 class="text-7xl font-black leading-[0.9] mb-4 md:mb-8 tracking-tighter">PRECISION <br>GRIP.</h1>
+                <p class="text-gray-300 md:text-gray-400 leading-relaxed font-light">Forged M alloy wheels and adaptive suspension translate engine power directly to the asphalt. Absolute control.</p>
+                <div class="specs-list">
+                    <div class="spec-row"><span class="spec-label">Front Wheels</span> <span class="spec-value">19" Forged</span></div>
+                    <div class="spec-row"><span class="spec-label">Rear Wheels</span> <span class="spec-value">20" Forged</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 6: Grand Final -->
+        <section class="step" id="step-6">
+            <div class="story-panel text-center w-full" id="panel-6">
+                <h1 class="text-[14vw] md:text-[10vw] font-black leading-none mb-4 md:mb-10 tracking-tighter uppercase italic drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500">DOMINANCE.</h1>
+                <p class="text-gray-300 md:text-gray-400 leading-relaxed text-sm md:text-lg mb-8 tracking-wide font-light">The pinnacle of engineering, now within your command.</p>
+                <button class="bg-[#00d2ff] text-black px-10 py-4 md:px-14 md:py-5 rounded-full font-black uppercase tracking-[0.2em] md:tracking-[0.25em] text-[10px] hover:bg-white hover:scale-110 transition-all duration-500 shadow-xl shadow-[#00d2ff]/30">
+                    Secure Your Spec
+                </button>
+            </div>
+        </section>
+
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // 0. CHECK DEVICE
+        const isMobile = window.innerWidth < 768;
+
+        // 1. LENIS BUTTER-SMOOTH SCROLL INITIALIZATION
+        const lenis = new Lenis({
+            duration: 1.5, // Even smoother and more relaxed
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 0.8,
+            smoothTouch: true, // Enable smooth scroll on touch devices!
+            touchMultiplier: 1.5,
+            infinite: false,
+        });
+
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => { lenis.raf(time * 1000) });
+        gsap.ticker.lagSmoothing(0);
+
+        lenis.on('scroll', (e) => {
+            document.getElementById("scroll-progress").style.width = (e.progress * 100) + "%";
+        });
+
+        // 2. SCENE & FRAMING SETUP
+        const canvas = document.querySelector('#webgl-canvas');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#010101');
+        scene.fog = new THREE.FogExp2('#010101', 0.05);
+
+        const camera = new THREE.PerspectiveCamera(isMobile ? 35 : 28, window.innerWidth / window.innerHeight, 0.1, 100);
+        
+        // MOBILE FIX: If on mobile, the camera targets heavily below the car (y: -1.0) 
+        // This forces the camera to look down, effectively pushing the 3D car UP into the top 50% of the screen!
+        const cameraTarget = new THREE.Vector3(0, isMobile ? -1.0 : 0.8, 0);
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(1); 
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.95;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        
+        const bloomResolution = new THREE.Vector2(window.innerWidth / 4, window.innerHeight / 4);
+        const bloom = new UnrealBloomPass(bloomResolution, 0.15, 0.5, 0.85);
+        composer.addPass(bloom);
+
+        // 3. LIGHTING
+        const ambient = new THREE.AmbientLight(0xffffff, 0.15);
+        scene.add(ambient);
+
+        const createSpot = (color, pos, intensity) => {
+            const s = new THREE.SpotLight(color, intensity);
+            s.position.set(...pos);
+            s.angle = Math.PI / 4;
+            s.penumbra = 0.8;
+            s.decay = 1.5;
+            scene.add(s);
+            return s;
+        };
+
+        const s1 = createSpot(0x00d2ff, [-8, 8, 8], 800);  
+        const s2 = createSpot(0xffffff, [8, 10, -5], 600); 
+        const s3 = createSpot(0xffffff, [0, 8, 12], 400);  
+
+        // 4. MODEL LOADING & SIZING
+        let carModel;
+        const carGroup = new THREE.Group();
+        scene.add(carGroup);
+
+        const loader = new GLTFLoader();
+        const progressBar = document.getElementById('progress');
+        const loaderScreen = document.getElementById('loader');
+
+        loader.load('./car.glb', (gltf) => {
+            carModel = gltf.scene;
+            
+            const box = new THREE.Box3().setFromObject(carModel);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+
+            carModel.position.sub(center);
+            
+            // On mobile, the car needs to be larger to fill the top half nicely
+            const targetSize = isMobile ? 5.5 : 7.5;
+            const scale = targetSize / Math.max(size.x, size.y, size.z);
+            carModel.scale.set(scale, scale, scale);
+            
+            carGroup.add(carModel);
+            
+            gsap.to(loaderScreen, { 
+                opacity: 0, duration: 1.5, ease: "power2.inOut", onComplete: () => loaderScreen.style.display = 'none' 
+            });
+        }, (xhr) => {
+            if (xhr.total > 0) progressBar.style.width = (xhr.loaded / xhr.total * 100) + '%';
+        }, () => {
+            const body = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 8), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.3 }));
+            carGroup.add(body);
+            gsap.to(loaderScreen, { opacity: 0, duration: 1 });
+        });
+
+        // 5. PAINT SYSTEM
+        document.querySelectorAll('.swatch').forEach(swatch => {
+            swatch.addEventListener('click', () => {
+                document.querySelector('.swatch.active').classList.remove('active');
+                swatch.classList.add('active');
+                const color = new THREE.Color(parseInt(swatch.dataset.color));
+                
+                if (carModel) {
+                    gsap.to({}, { duration: 0.8, onUpdate: () => {
+                        carModel.traverse(child => {
+                            if (child.isMesh && (child.name.toLowerCase().includes('body') || child.name.toLowerCase().includes('paint'))) {
+                                child.material.color.lerp(color, 0.1);
+                            }
+                        });
+                    }});
+                }
+            });
+        });
+
+        // 6. CINEMATIC SMOOTH SCROLL (GSAP TIMELINE)
+        // Mobile specific camera starting point
+        camera.position.set(0, 2, isMobile ? 12 : 12); 
+        
+        const masterTl = gsap.timeline({
+            scrollTrigger: {
+                trigger: ".scroll-container",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: true // Absolute lag-free sync with Lenis
+            }
+        });
+
+        // If Mobile, we do dramatic tight framing. If Desktop, we do wide panning.
+        if (isMobile) {
+            // Sequence 1: Side Profile Close-up
+            masterTl.to(camera.position, { x: 0, y: 1, z: 10, ease: "sine.inOut" }, 0)
+                    .to(carGroup.rotation, { y: Math.PI / 2, ease: "sine.inOut" }, 0);
+
+            // Sequence 2: Rear Angle Low
+            masterTl.to(camera.position, { x: 3, y: 0.5, z: -8, ease: "sine.inOut" }, 1)
+                    .to(carGroup.rotation, { y: Math.PI * 1.2, ease: "sine.inOut" }, 1);
+
+            // Sequence 3: High Engine Look
+            masterTl.to(camera.position, { x: 0, y: 7, z: 3, ease: "sine.inOut" }, 2)
+                    .to(carGroup.rotation, { y: Math.PI * 1.5, ease: "sine.inOut" }, 2);
+
+            // Sequence 4: Wheel Extreme Close-up
+            masterTl.to(camera.position, { x: -2, y: -0.5, z: 6, ease: "sine.inOut" }, 3)
+                    .to(camera, { fov: 40, onUpdate: () => camera.updateProjectionMatrix(), ease: "sine.inOut" }, 3)
+                    .to(carGroup.rotation, { y: Math.PI * 1.8, ease: "sine.inOut" }, 3);
+
+            // Sequence 5: Grand Final Look
+            masterTl.to(camera.position, { x: 0, y: 2, z: 14, ease: "sine.inOut" }, 4)
+                    .to(camera, { fov: 35, onUpdate: () => camera.updateProjectionMatrix(), ease: "sine.inOut" }, 4)
+                    .to(carGroup.rotation, { y: Math.PI * 2.1, ease: "sine.inOut" }, 4);
+        } else {
+            // Desktop Original Wide Pan logic
+            masterTl.to(camera.position, { x: -7, y: 2.5, z: 4, ease: "sine.inOut" }, 0)
+                    .to(camera, { fov: 30, onUpdate: () => camera.updateProjectionMatrix(), ease: "sine.inOut" }, 0)
+                    .to(carGroup.rotation, { y: Math.PI / 2, ease: "sine.inOut" }, 0);
+
+            masterTl.to(camera.position, { x: 5, y: 2, z: -8, ease: "sine.inOut" }, 1)
+                    .to(camera, { fov: 26, onUpdate: () => camera.updateProjectionMatrix(), ease: "sine.inOut" }, 1)
+                    .to(carGroup.rotation, { y: Math.PI * 1.2, ease: "sine.inOut" }, 1);
+
+            masterTl.to(camera.position, { x: -1, y: 8, z: 2, ease: "sine.inOut" }, 2)
+                    .to(camera, { fov: 32, onUpdate: () => camera.updateProjectionMatrix(), ease: "sine.inOut" }, 2)
+                    .to(carGroup.rotation, { y: Math.PI * 1.5, ease: "sine.inOut" }, 2);
+
+            masterTl.to(camera.position, { x: -5, y: -0.5, z: 5, ease: "sine.inOut" }, 3)
+                    .to(camera, { fov: 22, onUpdate: () => camera.updateProjectionMatrix(), ease: "sine.inOut" }, 3)
+                    .to(carGroup.rotation, { y: Math.PI * 1.8, ease: "sine.inOut" }, 3);
+
+            masterTl.to(camera.position, { x: 0, y: 2.5, z: 15, ease: "sine.inOut" }, 4)
+                    .to(camera, { fov: 26, onUpdate: () => camera.updateProjectionMatrix(), ease: "sine.inOut" }, 4)
+                    .to(carGroup.rotation, { y: Math.PI * 2, ease: "sine.inOut" }, 4);
+        }
+
+        // Text panels reveal logic
+        gsap.utils.toArray('.story-panel').forEach(panel => {
+            ScrollTrigger.create({
+                trigger: panel,
+                start: "top 80%",
+                end: "bottom 20%",
+                onEnter: () => panel.classList.add('active'),
+                onLeave: () => panel.classList.remove('active'),
+                onEnterBack: () => panel.classList.add('active'),
+                onLeaveBack: () => panel.classList.remove('active')
+            });
+        });
+
+        // 7. Render Loop
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            
+            carGroup.position.y = Math.sin(t * 1.5) * 0.04;
+            camera.lookAt(cameraTarget);
+            
+            composer.render();
+        }
+        animate();
+
+        // Responsive Resize Handling
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            composer.setSize(width, height);
+            bloom.resolution.set(width / 4, height / 4);
+        });
+
+    </script>
+</body>
+</html>
